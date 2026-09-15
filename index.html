@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Acclimated</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A feels-like rating scaled to what your body has adjusted to and what the date expects.">
+<meta name="theme-color" content="#F2F4F4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Acclimated">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" href="./icon-180.png">
+<style>
+  :root{
+    --ink:#16242B; --muted:#6B7F88; --line:#B9C6CC;
+    --cold:#3E7CA6; --warm:#C2872B; --paper:#F2F4F4;
+    --good:#4C7A52; --bad:#A24A3E;
+    --accent:var(--warm); --wash:rgba(194,135,43,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    -webkit-text-size-adjust:100%;overscroll-behavior-y:none}
+  body{min-height:100vh;min-height:100dvh}
+  #wash{background:var(--wash);transition:background 600ms ease;min-height:100vh;min-height:100dvh;
+    padding:max(18px,env(safe-area-inset-top)) 0 max(28px,env(safe-area-inset-bottom))}
+  main{max-width:460px;margin:0 auto;padding:8px 20px 24px}
+  .num{font-variant-numeric:tabular-nums}
+  .bar{display:flex;gap:10px;align-items:flex-end;margin-bottom:20px}
+  input.txt{flex:1;background:transparent;border:0;border-bottom:1px solid var(--line);
+    padding:5px 0;color:var(--ink);font-size:16px;outline:none;min-width:0;font-family:inherit}
+  input.txt:focus{border-bottom-color:var(--ink)}
+  button.mini{border:1px solid var(--line);background:transparent;border-radius:2px;
+    padding:5px 10px;font-size:12px;color:var(--muted);cursor:pointer;font-family:inherit;
+    -webkit-tap-highlight-color:transparent}
+  button.mini[data-on="true"]{color:var(--ink);border-color:var(--ink)}
+  button.mini:focus-visible,input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .top{display:flex;gap:16px;align-items:flex-start;margin-bottom:14px}
+  .critter{width:134px;flex:0 0 134px}
+  .critter svg{display:block;width:100%;height:auto;border-radius:3px}
+  h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+    font-size:29px;line-height:1.06;font-weight:400;letter-spacing:-.015em;margin:0 0 8px}
+  .place{font-size:12px;color:var(--muted);margin:0 0 4px}
+  .rating{font-size:13px;color:var(--muted)}
+  .rating b{color:var(--accent);font-weight:600;font-size:17px}
+  .gloss{font-size:15px;line-height:1.55;opacity:.86;margin:0 0 6px}
+  .sub{font-size:14px;line-height:1.5;color:var(--muted);margin:0 0 6px}
+  .arc{font-size:14.5px;line-height:1.55;margin:12px 0 0;padding:11px 13px;
+    border-left:2px solid var(--accent);background:#ffffff66}
+  .maths{font-size:13px;color:var(--muted);margin:14px 0 16px;line-height:1.5}
+  .frames{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);margin-top:20px}
+  .frame{background:var(--paper);padding:12px 14px}
+  .frame .lab{font-size:12px;color:var(--muted);margin-bottom:3px}
+  .frame .big{font-size:24px}
+  .frame .sm{font-size:11px;color:var(--muted);margin-top:3px}
+  .sect{font-size:12px;color:var(--muted);margin:20px 0 8px}
+  .row{display:flex;justify-content:space-between;gap:12px;font-size:13px;
+    padding:6px 0;border-bottom:1px solid var(--line)}
+  .row span:first-child{opacity:.85}
+  .up{color:var(--warm)} .down{color:var(--cold)}
+  .good{color:var(--good)} .bad{color:var(--bad)} .neutral{color:var(--muted)}
+  .slider{margin-top:20px}
+  .slider .ends{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .note{font-size:11px;color:var(--muted);margin-top:22px;line-height:1.55}
+  .manual{margin-top:22px;font-size:13px;color:var(--muted);line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin-top:12px}
+  .grid label{font-size:12px;display:block}
+  .grid input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);
+    padding:4px 0;color:var(--ink);font-size:15px;outline:none;font-family:inherit}
+  .check{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:12px}
+  @media (prefers-reduced-motion:reduce){#wash{transition:none}}
+</style>
+</head>
+<body>
+<div id="wash"><main>
+  <div class="bar">
+    <input class="txt" id="q" value="Minneapolis" aria-label="Place" autocomplete="off" autocapitalize="words">
+    <button class="mini" id="go">Check</button>
+    <button class="mini" id="here" title="Use my location">◎</button>
+    <button class="mini" id="unit" data-on="true">°F</button>
+  </div>
+  <div id="app"><p style="color:var(--muted);font-size:14px">Reading the last two weeks and ten years of this date…</p></div>
+</main></div>
+
+<script>
+/* ============================ helpers ============================ */
+var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));};
+function mean(a){var v=a.filter(function(x){return x!=null&&!isNaN(x);});
+  return v.length? v.reduce(function(s,x){return s+x;},0)/v.length : null;}
+function stdev(a){var v=a.filter(function(x){return x!=null&&!isNaN(x);});
+  if(v.length<3)return null;var m=mean(v);
+  return Math.sqrt(v.reduce(function(s,x){return s+(x-m)*(x-m);},0)/(v.length-1));}
+function runningMean(series,alpha){alpha=alpha||0.8;var num=0,den=0;
+  for(var n=0;n<series.length;n++){var v=series[n];if(v==null||isNaN(v))continue;
+    var w=Math.pow(alpha,n);num+=w*v;den+=w;}
+  return den?num/den:null;}
+function doy(d){var s=Date.UTC(d.getUTCFullYear(),0,1);
+  return Math.floor((Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate())-s)/86400000)+1;}
+function doyDist(a,b){var r=Math.abs(a-b);return Math.min(r,365-r);}
+function hr(h){var s=h%12; if(s===0)s=12; return s+(h<12?" am":" pm");}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+
+/* ===================== perceived temperature ===================== */
+/* internal units: °F, mph, inches */
+function perceive(s){
+  var parts=[],t=s.apparent;
+  if(s.dew!=null&&s.dewRef!=null){
+    var d=0,damp=false;
+    if(s.apparent>62) d=clamp(0.32*(s.dew-s.dewRef),-9,9);
+    else if(s.apparent<45&&s.dew>s.apparent-5){d=-3;damp=true;}
+    if(Math.abs(d)>=1.5){
+      parts.push([d, damp?"Damp cold, which cuts deeper than dry cold"
+                        :(d>0?"Muggier air than you've had lately":"Drier air than you've had lately")]);
+      t+=d;}
+  }
+  if(s.wind!=null&&s.windRef!=null){
+    var dw=s.wind-s.windRef,
+        k=s.apparent<58?-0.5:(s.apparent>80?-0.18:-0.3),
+        w=clamp(k*dw,-11,11);
+    if(Math.abs(w)>=1.5){parts.push([w,dw>0?"Windier than the past week":"Calmer than the past week"]);t+=w;}
+  }
+  if(s.sun!=null&&s.sunRef!=null){
+    var ks=s.apparent<65?10:6, ss=clamp((s.sun-s.sunRef)*ks,-8,8);
+    if(Math.abs(ss)>=1.5){parts.push([ss,ss>0?"More sun than you've been getting":"Greyer than you've been getting"]);t+=ss;}
+  }
+  return {t:t,parts:parts};
+}
+
+/* storms good · accumulating snow good · rain good >70°F, bad <60°F */
+function precipValence(s){
+  var v=0,notes=[];
+  if(s.storm){v+=1.5;notes.push(["+","Thunderstorms on the board"]);}
+  if(s.snow>=0.4){v+=1.2+Math.min(0.9,(s.snow-0.4)/3);
+    notes.push(["+",s.snow.toFixed(1)+'" of snow that will actually stick']);}
+  else if(s.snow>0.05){notes.push(["·","Flurries, but nothing that accumulates"]);}
+  if(s.rain>0.02){
+    var rv = s.high>=70 ? 1.2 : (s.high<=60 ? -1.4 : -1.4+((s.high-60)/10)*2.6);
+    v+=rv;
+    notes.push([rv>=0?"+":"−", s.high>=70?"Warm rain, the good kind"
+      :(s.high<=60?"Cold rain, the worst kind of wet":"Rain at an in-between temperature")]);
+  }
+  return {v:clamp(v,-2.5,2.5),notes:notes};
+}
+
+function thermalVerdict(z,abs){
+  var hot=abs>=84,cold=abs<=28,pleasant=abs>=55&&abs<=78;
+  if(z>=2.5)return hot?["Oppressive","Far above anything your body has adjusted to, on top of heat that was already hard."]
+                      :["Off the charts","A genuine outlier. Enjoy it or brace for it, but don't expect it to hold."];
+  if(z>=1.5)return hot?["Heavy","Well above normal and above what you're acclimated to. Lands harder than the number suggests."]
+             :pleasant?["A gift","Warmer than the calendar owes you and warmer than you've adjusted to. The good kind of wrong."]
+                      :["Unseasonably mild","Noticeably above both your recent baseline and the date."];
+  if(z>=0.75)return["Easier than it should be","A step up from what you've been living in. Lighter layer than instinct says."];
+  if(z>=0.25)return["A touch mild","Slightly above your running baseline. You'll notice it without thinking about it."];
+  if(z>-0.25)return["Right on script","Your body and the calendar both expect this. No adjustment needed."];
+  if(z>-0.75)return["A touch sharp","Just under your baseline. The kind of day you underdress for."];
+  if(z>-1.5)return["Sharper than you're used to","Below your recent baseline and below the seasonal norm. It bites more than the thermometer implies."];
+  if(z>-2.5)return cold?["Punishing","Deep below normal on top of cold you were already fighting."]
+                       :["Harsh for the date","Outside what this time of year owes you. Dress for the adjusted number, not the forecast."];
+  return["Shock to the system","An extreme departure. Your body has no recent reference for this."];
+}
+function eventVerdict(s){
+  if(s.storm)return["Storm day","Thunder in the forecast. Whatever else today is, it won't be boring."];
+  if(s.snow>=0.4)return["Snow that sticks","Accumulating snow. The ground changes color and everything sounds different."];
+  if(s.rain>0.02&&s.high>=70)return["Warm rain","Rain you can stand in without regretting it."];
+  if(s.rain>0.02&&s.high<=60)return["Cold rain","The one combination with nothing to recommend it. Waterproof everything."];
+  return null;
+}
+function dayRating(tp,z,v){
+  var comfort=clamp(2.5-2.6*Math.pow((tp-72)/24,2),-3.5,2.5),
+      surprise=0.5*clamp(z,-2,2)*(tp<75?1:-1);
+  return clamp(5+comfort+surprise+v,0,10);
+}
+
+/* ==================== how the day will unfold ==================== */
+function arcSummary(h,unit){
+  if(!h||!h.app||h.app.length<24)return "";
+  var D=function(f){return unit==="F"?Math.round(f):Math.round((f-32)*5/9);};
+  var app=h.app, wind=h.wind, pr=h.precip, code=h.code, snowH=h.snow;
+  var day=[];for(var i=5;i<=22;i++)if(app[i]!=null)day.push([i,app[i]]);
+  if(!day.length)return "";
+  var hi=day[0],lo=day[0];
+  day.forEach(function(p){if(p[1]>hi[1])hi=p;if(p[1]<lo[1])lo=p;});
+  var morn=mean(app.slice(6,11)), aft=mean(app.slice(12,17)), eve=mean(app.slice(18,23));
+  var range=hi[1]-lo[1];
+  var out=[];
+
+  /* sentence 1 — the thermal arc */
+  if(range>=16){
+    out.push("Wide swing today: about "+D(morn)+"° through the morning, peaking near "+D(hi[1])+"° around "+hr(hi[0])+", then back to "+D(eve)+"° by late evening.");
+  }else if(eve!=null&&aft!=null&&aft-eve>=10){
+    out.push("Pleasant through the afternoon near "+D(aft)+"°, but it gives up about "+Math.abs(D(aft)-D(eve))+"° after sunset, so the evening will feel like a different day.");
+  }else if(morn!=null&&aft!=null&&aft-morn>=10){
+    out.push("Starts sharp near "+D(morn)+"° and climbs to about "+D(aft)+"° by mid-afternoon, so whatever you leave the house in will be wrong by noon.");
+  }else if(range<=7){
+    out.push("Flat all day, hovering around "+D(mean(app.slice(6,23)))+"° from morning to night. What you feel at breakfast is what you get.");
+  }
+
+  /* sentence 2 — precipitation and wind timing */
+  var wetHrs=[];for(var j=0;j<24;j++)if(pr[j]!=null&&pr[j]>0.01)wetHrs.push(j);
+  if(wetHrs.length){
+    var a=wetHrs[0],b=wetHrs[wetHrs.length-1];
+    var snowy=snowH&&mean(snowH)>0.005;
+    var stormy=code&&code.slice(a,b+1).some(function(c){return c>=95;});
+    var what=stormy?"Storms":(snowy?"Snow":"Rain");
+    if(wetHrs.length>=14) out.push(what+" is with you most of the day.");
+    else if(a>=15) out.push(what+" holds off until around "+hr(a)+", so the daylight hours stay usable.");
+    else if(b<=11) out.push(what+" clears out by about "+hr(b+1)+" and the afternoon opens up.");
+    else out.push(what+" is most likely between "+hr(a)+" and "+hr(b+1)+".");
+  } else if(wind){
+    var wm=mean(wind.slice(6,11)), wa=mean(wind.slice(13,20));
+    if(wa!=null&&wm!=null&&wa-wm>=8) out.push("Wind builds through the afternoon, which will take the edge off anything the thermometer promises.");
+    else if(wm!=null&&wa!=null&&wm-wa>=8) out.push("Wind settles as the day goes on, so the evening will feel milder than the morning did.");
+  }
+  return out.slice(0,2).join(" ");
+}
+
+/* ========================= monthly animals ======================= */
+var ANIMALS={
+ 1:{n:"polar bear", fur:"#EDEFF0",dark:"#D2DADD",belly:"#FAFBFB",ear:"round",earR:12,nose:"#2E2A28",cheek:"#E3C9C4"},
+ 2:{n:"groundhog", fur:"#A9855F",dark:"#8E6C4B",belly:"#C9A97F",ear:"round",earR:13,nose:"#3B2C22",cheek:"#D89A93"},
+ 3:{n:"hare",      fur:"#B8A894",dark:"#9C8C78",belly:"#DCD3C4",ear:"long",nose:"#C0757F",cheek:"#D89A93",tail:"puff"},
+ 4:{n:"duckling",  fur:"#F0CE62",dark:"#D8B348",belly:"#F8E7A8",ear:"none",beak:"#E08A3C",cheek:"#E8B98A"},
+ 5:{n:"robin",     fur:"#6E5A4B",dark:"#56463A",belly:"#D2703C",ear:"none",beak:"#E8C15A",throat:"#D2703C",darkFace:true},
+ 6:{n:"fawn",      fur:"#C08E5A",dark:"#A2743F",belly:"#E4C69A",ear:"leaf",nose:"#3B2C22",cheek:"#D89A93",spots:true},
+ 7:{n:"loon",      fur:"#2A2D31",dark:"#17191C",belly:"#F2F4F4",ear:"none",beak:"#20242A",eye:"#C0392B",checks:true,darkFace:true},
+ 8:{n:"bear cub",  fur:"#6B4F3A",dark:"#523A29",belly:"#93755A",ear:"round",earR:12,nose:"#2B211A",cheek:"#A9736B",darkFace:true},
+ 9:{n:"squirrel",  fur:"#8D8378",dark:"#6F665C",belly:"#D8CFC2",ear:"tuft",nose:"#3B2C22",cheek:"#D89A93",tail:"bushy"},
+ 10:{n:"black cat",fur:"#2B2B31",dark:"#1A1A1F",belly:"#3A3A42",ear:"pointed",nose:"#C87E8A",eye:"#8FC46B",tail:"long",whisk:true,darkFace:true},
+ 11:{n:"owl",      fur:"#8A7660",dark:"#6D5B48",belly:"#CDBBA0",ear:"tufts",beak:"#E0A13C",discs:true},
+ 12:{n:"reindeer", fur:"#9A7C63",dark:"#7C6249",belly:"#C7AD92",ear:"leaf",nose:"#C0392B",cheek:"#C98E86",antlers:true}
+};
+
+var PARKA="#2F5D7C",COAT="#41635C",SHIRT="#7FA8A0",TANK="#D9CBB2",
+    PANTS="#3E4A52",SHORTS="#5E7380",SCARF="#B0443C",HATC="#C2872B",
+    RAINC="#E0A93B",BOOT="#2B3338";
+
+function critterSVG(o){
+  var A=ANIMALS[o.month]||ANIMALS[2];
+  var tp=o.tp, wet=o.rain>0.02||o.storm, snowy=o.snow>0.05,
+      windy=o.wind>=18, sunny=o.sun>0.55&&!wet&&!snowy;
+  var tier = tp<15?0:tp<32?1:tp<48?2:tp<60?3:tp<72?4:tp<85?5:6;
+  var hood=tier===0, beanie=tier<=2, sunhat=tier===6&&sunny, mittens=tier<=1,
+      scarf=tier<=2||(tier===3&&windy), boots=tier<=2||wet||snowy,
+      longPants=tier<=4, raincoat=wet&&tier>=3, shades=sunny&&tier>=4, umbrella=wet;
+  var outer = raincoat?RAINC : (tier<=1?PARKA : tier===2?COAT : null);
+  var shirt = tier===6?TANK:SHIRT;
+  var eye=A.eye||"#2E2A28";
+  var sky = o.storm?"#8E9BA6" : wet?"#B4C3CB" : snowy?"#DCE4EA" : sunny?"#CBE1EE":"#D2D8DB";
+  var ground = (snowy||tp<30)?"#EDF2F5" : tp>80?"#C9BE93":"#A8B893";
+  var s='<svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A '+A.n+' dressed for today\'s weather">';
+  s+='<rect width="200" height="230" fill="'+sky+'"/>';
+
+  /* sky */
+  if(sunny){s+='<circle cx="164" cy="34" r="15" fill="#F0C860"/>';
+    [0,45,90,135,180,225,270,315].forEach(function(a){var r=a*Math.PI/180;
+      s+='<line x1="'+(164+19*Math.cos(r)).toFixed(1)+'" y1="'+(34+19*Math.sin(r)).toFixed(1)+
+         '" x2="'+(164+25*Math.cos(r)).toFixed(1)+'" y2="'+(34+25*Math.sin(r)).toFixed(1)+
+         '" stroke="#F0C860" stroke-width="2.5" stroke-linecap="round"/>';});
+  }else{
+    s+='<g fill="#FFFFFF" opacity="'+(o.storm?0.35:0.7)+'">'+
+       '<circle cx="40" cy="30" r="13"/><circle cx="58" cy="28" r="17"/><circle cx="78" cy="33" r="12"/>'+
+       '<circle cx="150" cy="22" r="11"/><circle cx="166" cy="24" r="14"/></g>';
+  }
+  if(o.storm)s+='<polygon points="116,18 104,50 114,50 102,78 128,42 117,42 128,18" fill="#F4D96A" stroke="#B79A2E" stroke-width="1"/>';
+  if(snowy){for(var i=0;i<26;i++)s+='<circle cx="'+((i*37)%190+5)+'" cy="'+((i*53)%190+8)+'" r="'+(1.6+((i*7)%3)*0.7)+'" fill="#FFF" opacity=".9"/>';}
+  if(wet){for(var j=0;j<22;j++){var x=(j*41)%190+5,y=(j*61)%170+5;
+    s+='<line x1="'+x+'" y1="'+y+'" x2="'+(x-(windy?9:4))+'" y2="'+(y+13)+'" stroke="#7E98A8" stroke-width="1.6" opacity=".75" stroke-linecap="round"/>';}}
+  if(windy)for(var k=0;k<3;k++)s+='<path d="M'+(10+k*8)+' '+(96+k*22)+' q 26 -7 46 0 q 12 4 20 -2" fill="none" stroke="#FFF" stroke-width="2" opacity=".5" stroke-linecap="round"/>';
+  s+='<ellipse cx="100" cy="206" rx="84" ry="18" fill="'+ground+'"/>';
+
+  /* tail, behind */
+  if(A.tail==="bushy")s+='<path d="M150 178 q 34 -12 30 -50 q -4 -34 -30 -30 q 22 12 16 36 q -6 24 -16 30 z" fill="'+A.dark+'"/>';
+  if(A.tail==="long")s+='<path d="M144 180 q 34 4 34 -28 q 0 -18 -14 -20" fill="none" stroke="'+A.fur+'" stroke-width="11" stroke-linecap="round"/>';
+  if(A.tail==="puff")s+='<circle cx="152" cy="180" r="14" fill="'+A.belly+'"/>';
+
+  if(umbrella)s+='<path d="M100 46 L100 74" stroke="#6B5340" stroke-width="4" stroke-linecap="round"/>';
+  if(raincoat)s+='<circle cx="100" cy="98" r="44" fill="'+RAINC+'"/>';
+  if(hood){s+='<circle cx="100" cy="98" r="45" fill="'+PARKA+'"/>';
+    s+='<circle cx="100" cy="98" r="45" fill="none" stroke="#D8C9AE" stroke-width="7" stroke-dasharray="4 5"/>';}
+
+  /* feet */
+  var footFill=A.beak?A.beak:A.dark;
+  s+='<ellipse cx="82" cy="196" rx="14" ry="9" fill="'+footFill+'"/><ellipse cx="118" cy="196" rx="14" ry="9" fill="'+footFill+'"/>';
+  if(boots)s+='<g fill="'+BOOT+'"><rect x="68" y="178" width="28" height="22" rx="6"/><ellipse cx="82" cy="197" rx="16" ry="9"/>'+
+              '<rect x="104" y="178" width="28" height="22" rx="6"/><ellipse cx="118" cy="197" rx="16" ry="9"/></g>';
+
+  /* body */
+  s+='<ellipse cx="100" cy="158" rx="47" ry="43" fill="'+A.fur+'"/>';
+  s+='<ellipse cx="100" cy="166" rx="31" ry="31" fill="'+A.belly+'"/>';
+  if(A.checks)s+='<g fill="#F2F4F4"><circle cx="58" cy="150" r="3.2"/><circle cx="66" cy="140" r="2.6"/><circle cx="142" cy="150" r="3.2"/><circle cx="134" cy="140" r="2.6"/></g>';
+
+  s+= longPants
+    ? '<path d="M60 168 h80 v26 a6 6 0 0 1 -6 6 h-68 a6 6 0 0 1 -6 -6 z" fill="'+PANTS+'"/>'
+    : '<path d="M64 172 h72 v16 a6 6 0 0 1 -6 6 h-60 a6 6 0 0 1 -6 -6 z" fill="'+SHORTS+'"/>';
+  s+='<path d="M62 134 h76 v34 a38 38 0 0 1 -76 0 z" fill="'+shirt+'"/>';
+  if(outer){s+='<path d="M56 130 h88 v38 a44 44 0 0 1 -88 0 z" fill="'+outer+'"/>'+
+    '<path d="M100 130 v52" stroke="#00000022" stroke-width="2.5"/>'+
+    '<path d="M86 130 l14 12 l14 -12" fill="none" stroke="#00000022" stroke-width="2.5"/>';}
+
+  s+='<ellipse cx="56" cy="156" rx="13" ry="18" fill="'+(outer||A.fur)+'" transform="rotate(12 56 156)"/>';
+  s+='<ellipse cx="144" cy="156" rx="13" ry="18" fill="'+(outer||A.fur)+'" transform="rotate(-12 144 156)"/>';
+  if(mittens)s+='<g fill="'+SCARF+'"><circle cx="52" cy="176" r="11"/><circle cx="148" cy="176" r="11"/></g>';
+  if(scarf){s+='<g fill="'+SCARF+'"><rect x="70" y="124" width="60" height="15" rx="7"/>';
+    s+= windy ? '<path d="M128 130 q 26 -10 44 4 q -18 2 -24 10 q -10 -10 -20 -6 z"/>'
+              : '<path d="M118 134 q 10 20 4 40 q -12 2 -16 -4 q 6 -18 2 -34 z"/>';
+    s+='</g>';}
+
+  /* ears, behind head */
+  if(A.ear==="round"){var r=A.earR||13;
+    s+='<g fill="'+A.fur+'"><circle cx="74" cy="72" r="'+r+'"/><circle cx="126" cy="72" r="'+r+'"/></g>'+
+       '<g fill="'+(A.cheek||"#C98E86")+'"><circle cx="74" cy="72" r="'+(r*0.5)+'"/><circle cx="126" cy="72" r="'+(r*0.5)+'"/></g>';}
+  if(A.ear==="long")
+    s+='<g><ellipse cx="80" cy="46" rx="9" ry="28" fill="'+A.fur+'" transform="rotate(-9 80 46)"/>'+
+       '<ellipse cx="120" cy="46" rx="9" ry="28" fill="'+A.fur+'" transform="rotate(9 120 46)"/>'+
+       '<ellipse cx="80" cy="48" rx="4.5" ry="20" fill="'+(A.cheek||"#D89A93")+'" transform="rotate(-9 80 48)"/>'+
+       '<ellipse cx="120" cy="48" rx="4.5" ry="20" fill="'+(A.cheek||"#D89A93")+'" transform="rotate(9 120 48)"/></g>';
+  if(A.ear==="leaf")
+    s+='<g><ellipse cx="68" cy="74" rx="11" ry="17" fill="'+A.fur+'" transform="rotate(-28 68 74)"/>'+
+       '<ellipse cx="132" cy="74" rx="11" ry="17" fill="'+A.fur+'" transform="rotate(28 132 74)"/>'+
+       '<ellipse cx="68" cy="75" rx="5.5" ry="10" fill="'+(A.cheek||"#C98E86")+'" transform="rotate(-28 68 75)"/>'+
+       '<ellipse cx="132" cy="75" rx="5.5" ry="10" fill="'+(A.cheek||"#C98E86")+'" transform="rotate(28 132 75)"/></g>';
+  if(A.ear==="pointed")
+    s+='<g fill="'+A.fur+'"><path d="M70 82 L64 46 L96 66 z"/><path d="M130 82 L136 46 L104 66 z"/></g>'+
+       '<g fill="'+(A.nose||"#C87E8A")+'" opacity=".8"><path d="M74 76 L71 56 L88 67 z"/><path d="M126 76 L129 56 L112 67 z"/></g>';
+  if(A.ear==="tuft")
+    s+='<g fill="'+A.fur+'"><path d="M72 76 q -10 -26 4 -34 q 8 12 10 28 z"/><path d="M128 76 q 10 -26 -4 -34 q -8 12 -10 28 z"/></g>';
+  if(A.antlers)
+    s+='<g fill="none" stroke="#7A5C3E" stroke-width="5" stroke-linecap="round">'+
+       '<path d="M80 70 q -10 -20 -6 -34"/><path d="M76 52 q -14 -4 -18 -16"/><path d="M78 40 q -10 -6 -12 -18"/>'+
+       '<path d="M120 70 q 10 -20 6 -34"/><path d="M124 52 q 14 -4 18 -16"/><path d="M122 40 q 10 -6 12 -18"/></g>';
+
+  /* head */
+  s+='<circle cx="100" cy="100" r="37" fill="'+A.fur+'"/>';
+  if(A.tufts||A.ear==="tufts")
+    s+='<g fill="'+A.fur+'"><path d="M74 76 L76 50 L94 70 z"/><path d="M126 76 L124 50 L106 70 z"/></g>';
+  if(A.discs)s+='<g fill="'+A.belly+'"><circle cx="86" cy="96" r="17"/><circle cx="114" cy="96" r="17"/></g>';
+  if(A.n==="loon")s+='<path d="M70 124 q 30 9 60 0 q -5 -8 -30 -8 q -25 0 -30 8 z" fill="#F2F4F4"/>';
+  if(A.throat)s+='<path d="M74 118 q 26 14 52 0 q -8 14 -26 14 q -18 0 -26 -14 z" fill="'+A.throat+'"/>';
+  if(A.spots)s+='<g fill="#EEDCC0" opacity=".9"><circle cx="78" cy="78" r="3.6"/><circle cx="122" cy="78" r="3.6"/><circle cx="100" cy="70" r="3"/><circle cx="68" cy="94" r="3"/><circle cx="132" cy="94" r="3"/></g>';
+
+  if(A.beak){
+    if(A.n==="duckling")s+='<ellipse cx="100" cy="110" rx="17" ry="9" fill="'+A.beak+'"/><path d="M83 110 h34" stroke="#00000022" stroke-width="1.5"/>';
+    else if(A.n==="loon")s+='<path d="M100 98 L87 118 L113 118 z" fill="'+A.beak+'"/><path d="M100 98 v20" stroke="#0000002E" stroke-width="1.4"/>';
+    else s+='<path d="M100 100 L92 112 L108 112 z" fill="'+A.beak+'"/>';
+  }else{
+    s+='<ellipse cx="100" cy="114" rx="19" ry="14" fill="'+A.belly+'"/>';
+    s+='<ellipse cx="100" cy="105" rx="5.5" ry="4" fill="'+(A.nose||"#3B2C22")+'"/>';
+    s+='<path d="M100 109 v4 M100 113 q -6 5 -11 1 M100 113 q 6 5 11 1" fill="none" stroke="#3B2C22" stroke-width="1.8" stroke-linecap="round"/>';
+  }
+  if(A.whisk)s+='<g stroke="#FFFFFFAA" stroke-width="1.6" stroke-linecap="round"><path d="M78 110 l-18 -5"/><path d="M78 115 l-18 3"/><path d="M122 110 l18 -5"/><path d="M122 115 l18 3"/></g>';
+
+  var er=A.discs?9:5.4;
+  if(A.darkFace&&!A.discs)s+='<g fill="#EFEAE2"><circle cx="86" cy="94" r="'+(er+2.6)+'"/><circle cx="114" cy="94" r="'+(er+2.6)+'"/></g>';
+  s+='<g fill="'+eye+'"><circle cx="86" cy="94" r="'+er+'"/><circle cx="114" cy="94" r="'+er+'"/></g>';
+  if(A.discs)s+='<g fill="#2E2A28"><circle cx="86" cy="94" r="4.5"/><circle cx="114" cy="94" r="4.5"/></g>';
+  s+='<g fill="#FFFFFF"><circle cx="'+(86-1.8)+'" cy="'+(94-1.8)+'" r="1.9"/><circle cx="'+(114-1.8)+'" cy="'+(94-1.8)+'" r="1.9"/></g>';
+  if(A.cheek)s+='<g fill="'+A.cheek+'" opacity=".5"><ellipse cx="72" cy="108" rx="8" ry="5"/><ellipse cx="128" cy="108" rx="8" ry="5"/></g>';
+
+  /* headwear */
+  if(shades)s+='<g stroke="#EDE7DB" stroke-width="1.8"><rect x="74" y="87" width="22" height="14" rx="6" fill="#26333A"/>'+
+    '<rect x="104" y="87" width="22" height="14" rx="6" fill="#26333A"/><path d="M96 93 h8"/></g>';
+  if(beanie&&!hood)s+='<g><path d="M64 84 a36 36 0 0 1 72 0 z" fill="'+HATC+'"/>'+
+    '<rect x="61" y="80" width="78" height="13" rx="6" fill="#A06F1F"/><circle cx="100" cy="46" r="9" fill="#A06F1F"/></g>';
+  if(sunhat)s+='<g><ellipse cx="100" cy="78" rx="54" ry="11" fill="#E4D6AE"/>'+
+    '<path d="M72 78 a28 28 0 0 1 56 0 z" fill="#E4D6AE"/><path d="M72 76 h56" stroke="'+SCARF+'" stroke-width="5"/></g>';
+  if(raincoat)s+='<path d="M64 88 a36 36 0 0 1 72 0 a36 15 0 0 0 -72 0 z" fill="'+RAINC+'"/>';
+  if(umbrella)s+='<g><path d="M44 48 q 8 -30 28 -30 q 8 0 12 6 q 6 -16 16 -16 q 10 0 16 16 q 4 -6 12 -6 q 20 0 28 30 '+
+    'q -14 -8 -28 0 q -14 -8 -28 0 q -14 -8 -28 0 q -14 -8 -28 0 z" fill="'+(o.storm?"#3F5A6B":SCARF)+'" stroke="#00000022" stroke-width="1"/>'+
+    '<path d="M100 44 v-4" stroke="#6B5340" stroke-width="4" stroke-linecap="round"/></g>';
+
+  return s+'</svg>';
+}
+
+/* ============================= gauge ============================= */
+function gaugeSVG(z,sigma,accent,unit){
+  var W=340,H=150,pad=14,peak=H-34,amp=86,
+      x=function(zz){return pad+((zz+3.4)/6.8)*(W-pad*2);},
+      step=unit==="F"?sigma:sigma*5/9, pts=[];
+  for(var i=-3.4;i<=3.4;i+=0.08)pts.push(x(i).toFixed(1)+","+(peak-amp*Math.exp(-(i*i)/2)).toFixed(1));
+  var nx=x(clamp(z,-3.2,3.2));
+  var s='<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Today sits '+z.toFixed(1)+' typical swings from your reference temperature">';
+  s+='<rect x="'+x(-1)+'" y="'+(peak-amp)+'" width="'+(x(1)-x(-1))+'" height="'+amp+'" fill="#B9C6CC" opacity=".28"/>';
+  s+='<polyline points="'+pts.join(" ")+'" fill="none" stroke="#B9C6CC" stroke-width="1.4"/>';
+  s+='<line x1="'+pad+'" y1="'+peak+'" x2="'+(W-pad)+'" y2="'+peak+'" stroke="#B9C6CC" stroke-width="1"/>';
+  [-3,-2,-1,0,1,2,3].forEach(function(t){
+    s+='<line x1="'+x(t)+'" y1="'+peak+'" x2="'+x(t)+'" y2="'+(peak+5)+'" stroke="#B9C6CC" stroke-width="1"/>';
+    s+='<text x="'+x(t)+'" y="'+(peak+17)+'" text-anchor="middle" font-size="9" fill="#6B7F88" font-family="sans-serif">'+
+       (t===0?"normal":(t>0?"+":"")+Math.round(t*step)+"\u00B0")+'</text>';});
+  s+='<line x1="'+nx+'" y1="'+(peak-amp-8)+'" x2="'+nx+'" y2="'+(peak+6)+'" stroke="'+accent+'" stroke-width="2.5" stroke-linecap="round"/>';
+  s+='<circle cx="'+nx+'" cy="'+(peak-amp-8)+'" r="4.5" fill="'+accent+'"/>';
+  s+='<text x="'+nx+'" y="'+(peak-amp-16)+'" text-anchor="middle" font-size="11" fill="'+accent+'" font-weight="600" font-family="sans-serif">today</text>';
+  return s+'</svg>';
+}
+
+/* ============================== state ============================= */
+var S={unit:localStorage.getItem("acc.unit")||"F",
+       bodyWeight:parseFloat(localStorage.getItem("acc.bw")||"0.55"),
+       place:localStorage.getItem("acc.place")||"Minneapolis",
+       data:null,hourly:null,status:"loading",
+       manual:{today:52,high:54,recent:66,normal:70,sigma:9,wind:18,dew:48,sun:.2,rain:.3,snow:0,storm:false}};
+var reqId=0;
+
+function cached(){try{return JSON.parse(localStorage.getItem("acc.last")||"null");}catch(e){return null;}}
+
+async function load(name,coords){
+  var id=++reqId; S.status="loading"; render();
+  try{
+    var lat,lon,label;
+    if(coords){lat=coords.lat;lon=coords.lon;label="Your location";}
+    else{
+      var g=await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&name="+encodeURIComponent(name)).then(function(r){return r.json();});
+      if(!g.results||!g.results.length)throw new Error("no place");
+      lat=g.results[0].latitude;lon=g.results[0].longitude;
+      label=g.results[0].admin1?g.results[0].name+", "+g.results[0].admin1:g.results[0].name;
+    }
+    var base="latitude="+lat+"&longitude="+lon+"&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=auto";
+    var fc=await fetch("https://api.open-meteo.com/v1/forecast?"+base+"&past_days=14&forecast_days=1"+
+      "&daily=weather_code,apparent_temperature_max,apparent_temperature_min,temperature_2m_max,temperature_2m_min,"+
+      "wind_speed_10m_max,precipitation_sum,rain_sum,showers_sum,snowfall_sum,sunshine_duration,daylight_duration"+
+      "&hourly=apparent_temperature,dew_point_2m,precipitation,snowfall,wind_speed_10m,weather_code").then(function(r){return r.json();});
+    var now=new Date(),y=now.getFullYear();
+    var ar=await fetch("https://archive-api.open-meteo.com/v1/archive?"+base+
+      "&start_date="+(y-10)+"-01-01&end_date="+(y-1)+"-12-31"+
+      "&daily=apparent_temperature_max,apparent_temperature_min").then(function(r){return r.json();});
+    if(id!==reqId)return;
+
+    var d=fc.daily,n=d.time.length,i=n-1;
+    var dayMean=d.apparent_temperature_max.map(function(mx,k){
+      return (mx!=null&&d.apparent_temperature_min[k]!=null)?(mx+d.apparent_temperature_min[k])/2:null;});
+    var H=fc.hourly||{},dewDaily=[];
+    for(var k=0;k<n;k++){var sl=(H.dew_point_2m||[]).slice(k*24,k*24+24);dewDaily.push(sl.length?mean(sl):null);}
+    var sunFrac=d.sunshine_duration.map(function(s,k){return s==null?null:s/Math.max(1,d.daylight_duration[k]);});
+    var target=doy(now),pool=[];
+    for(var q=0;q<ar.daily.time.length;q++){
+      var dt=new Date(ar.daily.time[q]+"T00:00:00Z");
+      if(doyDist(doy(dt),target)<=7){
+        var mx=ar.daily.apparent_temperature_max[q],mn=ar.daily.apparent_temperature_min[q];
+        if(mx!=null&&mn!=null)pool.push((mx+mn)/2);}}
+    var past=function(a){return a.slice(Math.max(0,i-7),i);};
+    var o=i*24;
+    S.hourly={app:(H.apparent_temperature||[]).slice(o,o+24),
+              precip:(H.precipitation||[]).slice(o,o+24),
+              snow:(H.snowfall||[]).slice(o,o+24),
+              wind:(H.wind_speed_10m||[]).slice(o,o+24),
+              code:(H.weather_code||[]).slice(o,o+24)};
+    S.data={label:label,month:now.getMonth()+1,
+      apparent:dayMean[i],high:d.temperature_2m_max[i],
+      dew:dewDaily[i],dewRef:runningMean(dewDaily.slice(0,i).reverse()),
+      wind:d.wind_speed_10m_max[i],windRef:mean(past(d.wind_speed_10m_max)),
+      sun:sunFrac[i],sunRef:mean(past(sunFrac)),
+      rain:(d.rain_sum[i]||0)+(d.showers_sum[i]||0),snow:d.snowfall_sum[i]||0,
+      storm:[95,96,99].indexOf(d.weather_code[i])>=0,
+      body:runningMean(dayMean.slice(0,i).reverse()),normal:mean(pool),sigma:stdev(pool)};
+    S.place=label;S.status="ok";
+    localStorage.setItem("acc.place",label);
+    localStorage.setItem("acc.last",JSON.stringify({data:S.data,hourly:S.hourly,at:Date.now()}));
+  }catch(e){
+    if(id!==reqId)return;
+    var c=cached();
+    if(c&&Date.now()-c.at<36e5*12){S.data=c.data;S.hourly=c.hourly;S.status="stale";}
+    else S.status="manual";
+  }
+  render();
+}
+
+/* ============================= render ============================ */
+function render(){
+  var el=document.getElementById("app");
+  if(S.status==="loading"){el.innerHTML='<p style="color:var(--muted);font-size:14px">Reading the last two weeks and ten years of this date…</p>';return;}
+  var live=(S.status==="ok"||S.status==="stale")&&S.data&&S.data.body!=null&&S.data.normal!=null&&S.data.sigma;
+  var m=S.manual;
+  var src = live? S.data : {label:"Your numbers",month:new Date().getMonth()+1,
+    apparent:m.today,high:m.high,dew:m.dew,dewRef:m.dew,wind:m.wind,windRef:8,
+    sun:m.sun,sunRef:.45,rain:m.rain,snow:m.snow,storm:m.storm,
+    body:m.recent,normal:m.normal,sigma:m.sigma};
+
+  var P=perceive(src),tp=P.t;
+  var ref=S.bodyWeight*src.body+(1-S.bodyWeight)*src.normal;
+  var sigma=Math.max(2,src.sigma),delta=tp-ref,z=delta/sigma;
+  var V=precipValence(src),rating=dayRating(tp,z,V.v);
+  var ev=eventVerdict(src),th=thermalVerdict(z,tp);
+  var head=(Math.abs(V.v)>=1.2&&ev)?ev:th, sub=(Math.abs(V.v)>=1.2&&ev)?th:null;
+
+  var t=clamp(z/2.5,-1,1),accent,wash;
+  if(t>=0){accent="var(--warm)";wash="rgba(194,135,43,"+(0.06+0.16*t).toFixed(3)+")";}
+  else{accent="var(--cold)";wash="rgba(62,124,166,"+(0.06+0.18*-t).toFixed(3)+")";}
+  document.documentElement.style.setProperty("--accent",accent);
+  document.documentElement.style.setProperty("--wash",wash);
+  var accHex = t>=0?"#C2872B":"#3E7CA6";
+
+  var D=function(f){return f==null?"—":(S.unit==="F"?Math.round(f):Math.round((f-32)*5/9))+"\u00B0";};
+  var DD=function(f){return S.unit==="F"?Math.round(f):Math.round(f*5/9);};
+  var arc = live? arcSummary(S.hourly,S.unit) : "";
+
+  var h="";
+  h+='<div class="top"><div class="critter">'+critterSVG({month:src.month,tp:tp,storm:src.storm,snow:src.snow,rain:src.rain,wind:src.wind,sun:src.sun})+'</div>';
+  h+='<div><p class="place">'+esc(live?S.place:"Your numbers")+(S.status==="stale"?" · saved reading":"")+'</p>';
+  h+='<h1>'+esc(head[0])+'</h1>';
+  h+='<div class="rating num">Day rating <b>'+rating.toFixed(1)+'</b> / 10</div></div></div>';
+  h+='<p class="gloss">'+esc(head[1])+'</p>';
+  if(sub)h+='<p class="sub">Underneath the weather: '+esc(sub[0].toLowerCase())+'. '+esc(sub[1])+'</p>';
+  if(arc)h+='<p class="arc">'+esc(arc)+'</p>';
+  h+='<p class="maths num">'+D(src.apparent)+' apparent, '+D(tp)+' adjusted, against a personal reference of '+D(ref)+
+     ' — '+(delta>=0?"+":"")+DD(delta)+'\u00B0, or '+(z>=0?"+":"")+z.toFixed(1)+' typical swings.</p>';
+  h+=gaugeSVG(z,sigma,accHex,S.unit);
+  h+='<div class="frames"><div class="frame"><div class="lab">What your body adjusted to</div>'+
+     '<div class="big num">'+D(src.body)+'</div><div class="sm">weighted last 7 days</div></div>'+
+     '<div class="frame"><div class="lab">What the date expects</div>'+
+     '<div class="big num">'+D(src.normal)+'</div><div class="sm">10-year mean, \u00B17 days</div></div></div>';
+
+  if(P.parts.length||V.notes.length){
+    h+='<div class="sect">What moved the number</div>';
+    P.parts.forEach(function(p){
+      h+='<div class="row num"><span>'+esc(p[1])+'</span><span class="'+(p[0]>0?"up":"down")+'">'+
+         (p[0]>0?"+":"")+DD(p[0])+'\u00B0</span></div>';});
+    V.notes.forEach(function(nt){
+      var cls=nt[0]==="+"?"good":(nt[0]==="\u2212"?"bad":"neutral"),
+          lab=nt[0]==="\u00B7"?"no effect":(nt[0]==="+"?"better day":"worse day");
+      h+='<div class="row"><span>'+esc(nt[1])+'</span><span class="'+cls+'">'+lab+'</span></div>';});
+  }
+
+  h+='<div class="slider"><div class="ends"><span>Calendar</span><span>'+Math.round(S.bodyWeight*100)+
+     '% body</span><span>Body</span></div>'+
+     '<input type="range" id="bw" min="0" max="1" step="0.05" value="'+S.bodyWeight+'" aria-label="Weight on acclimatization versus seasonal norm">'+
+     '<p class="sm" style="color:var(--muted);font-size:12px;line-height:1.5;margin-top:6px">'+
+     'Slide toward the body if you judge a day by the last week, toward the calendar if you judge it by what the date owes you.</p></div>';
+
+  if(S.status==="manual"){
+    h+='<div class="manual">Live data isn\u2019t reachable, so set the numbers yourself. Temperatures in \u00B0F.<div class="grid">';
+    [["today","Apparent temp"],["high","Actual high"],["recent","Avg past week"],["normal","Normal for date"],
+     ["sigma","Typical swing"],["wind","Wind (mph)"],["dew","Dew point"],["sun","Sun fraction 0\u20131"],
+     ["rain","Rain (in)"],["snow","Snow (in)"]].forEach(function(f){
+      h+='<label>'+f[1]+'<input type="number" inputmode="decimal" data-m="'+f[0]+'" step="'+
+         (f[0]==="sun"?"0.05":(f[0]==="rain"||f[0]==="snow"?"0.1":"1"))+'" value="'+m[f[0]]+'"></label>';});
+    h+='</div><label class="check"><input type="checkbox" id="storm"'+(m.storm?" checked":"")+'> Thunderstorms</label></div>';
+  }
+
+  h+='<p class="note">Apparent temperature is adjusted for dew point, wind and sunshine measured against your own recent baseline, '+
+     'then compared to a blend of an exponentially weighted running mean (\u03B1 = 0.8) and the climatological mean for this calendar '+
+     'window, scaled by that window\u2019s standard deviation. Storms and accumulating snow raise the day rating; rain raises it above '+
+     '70\u00B0F and lowers it below 60\u00B0F. Companion animal changes monthly. Weather data from Open-Meteo.</p>';
+
+  el.innerHTML=h;
+
+  var bw=document.getElementById("bw");
+  if(bw)bw.addEventListener("input",function(e){S.bodyWeight=parseFloat(e.target.value);
+    localStorage.setItem("acc.bw",S.bodyWeight);render();});
+  Array.prototype.forEach.call(el.querySelectorAll("[data-m]"),function(inp){
+    inp.addEventListener("change",function(e){S.manual[e.target.dataset.m]=parseFloat(e.target.value)||0;render();});});
+  var st=document.getElementById("storm");
+  if(st)st.addEventListener("change",function(e){S.manual.storm=e.target.checked;render();});
+}
+
+/* ============================ controls =========================== */
+document.getElementById("q").value=S.place;
+document.getElementById("unit").textContent="\u00B0"+S.unit;
+document.getElementById("unit").dataset.on=(S.unit==="F");
+document.getElementById("go").addEventListener("click",function(){load(document.getElementById("q").value);});
+document.getElementById("q").addEventListener("keydown",function(e){
+  if(e.key==="Enter"){e.target.blur();load(e.target.value);}});
+document.getElementById("unit").addEventListener("click",function(){
+  S.unit=S.unit==="F"?"C":"F";localStorage.setItem("acc.unit",S.unit);
+  this.textContent="\u00B0"+S.unit;this.dataset.on=(S.unit==="F");render();});
+document.getElementById("here").addEventListener("click",function(){
+  if(!navigator.geolocation)return;
+  navigator.geolocation.getCurrentPosition(
+    function(p){load(null,{lat:p.coords.latitude.toFixed(3),lon:p.coords.longitude.toFixed(3)});},
+    function(){},{timeout:8000,maximumAge:6e5});
+});
+
+var c=cached();
+if(c){S.data=c.data;S.hourly=c.hourly;S.status="stale";render();}
+load(S.place);
+
+if("serviceWorker" in navigator)
+  window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){});});
+</script>
+</body>
+</html>
