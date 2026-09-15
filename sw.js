@@ -1,4 +1,5 @@
 /* Acclimated service worker: cache the shell, always go to the network for weather. */
+theme: jekyll-theme-minimal
 const CACHE = "acclimated-v1";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
